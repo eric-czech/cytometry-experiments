@@ -1,0 +1,2 @@
+alias,pop,parent,dims,gating_method,gating_args,collapseDataForGating,groupBy,preprocessing_method,preprocessing_args
+*,+/-+/-,root,"ciCD4,ciCD8","mindensity",,,,,

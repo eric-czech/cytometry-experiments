@@ -16,9 +16,7 @@ library(dplyr)
 library(purrr)
 ```
 
-The most common way to profile T cells: flow cytometry. It's actually a single-cell method!
-
-We'll examine the OMIP data available from [FlowRepository](https://flowrepository.org/), using the client library [FlowRepositoryR](https://bioconductor.org/packages/release/bioc/html/FlowRepositoryR.html), and demonstrate phenotypic differences between T cell types based on the protein expression levels captured in these assays.
+We'll examine the OMIP panel data available from [FlowRepository](https://flowrepository.org/), using the client library [FlowRepositoryR](https://bioconductor.org/packages/release/bioc/html/FlowRepositoryR.html), and demonstrate phenotypic differences between T cell types based on the protein expression levels captured in these assays.
 
 To aid in identifying and visualizing these different cell populations, a variety of tools built on [flowCore](https://bioconductor.org/packages/release/bioc/html/FlowRepositoryR.html) will be used and in particular, [openCyto](https://bioconductor.org/packages/release/bioc/html/openCyto.html) will enable us to model and manipulate the workflows used in the OMIP publications to identify T cell types.
 

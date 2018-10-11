@@ -1,0 +1,7 @@
+alias,pop,parent,dims,gating_method,gating_args,collapseDataForGating,groupBy,preprocessing_method,preprocessing_args
+Live,+,root,"FSC.A,525.50Violet.A","polyGate","x=c(0,3e5,3e5,1e5,.5e5,0),y=c(0,0,2.3,2.3,2,1.5)",,,,
+Lymphocytes,+,Live,"FSC.A,SSC.A","flowClust.2d","K=3,quantile=.95",,,,
+Singlets,+,Lymphocytes,"FSC.A,FSC.H","singletGate","maxit=1000,wider_gate=T,prediction_level=.999999999",,,,
+gdTCells,+,Singlets,"670.30Violet.A,530.30Blue.A","flowClust.2d","K=3,target=c(2.5,2.5)",,,,
+abTCells,+,Singlets,"670.30Violet.A,530.30Blue.A","flowClust.2d","K=3,target=c(2.5,1),quantile=0.95",,,,
+maiTCells,+,abTCells,"582.15Yellow.A,540.30Violet.A","polyGate","x=c(2.7,5,5,2.7),y=c(2.5,2.5,5,5)",,,,

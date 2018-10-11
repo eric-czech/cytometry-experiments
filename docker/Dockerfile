@@ -28,11 +28,13 @@ RUN wget --no-verbose https://download3.rstudio.org/ubuntu-14.04/x86_64/VERSION 
     R -e "install.packages(c('shiny', 'rmarkdown'), repos='$MRAN')" && \
     cp -R /usr/local/lib/R/site-library/shiny/examples/* /srv/shiny-server/
 
+# Install bioconductor tools
+RUN R -e 'install.packages("BiocManager")'
+
 # Install packages for shinyCyto
 RUN R -e 'devtools::install_github("hammerlab/cytoEx", ref="trunk")'
 RUN R -e 'devtools::install_github("RGLab/flowWorkspaceData", ref="trunk")'
 # RUN R -e 'devtools::install_github("hammerlab/shinyCyto", ref="trunk")'
-
 RUN R -e "install.packages(c('shinyjs', 'shinydashboard', 'DT', 'shinyFiles', 'networkD3', 'shinyBS', 'hash'))"
 RUN R -e "devtools::install_github('AnalytixWare/ShinySky')"
 

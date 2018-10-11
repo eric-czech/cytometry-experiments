@@ -51,7 +51,7 @@ TBD
 
 Initial Example: [OMIP-021 Innate-like T-cell Panel (FR-FCM-ZZ9H)](https://flowrepository.org/id/FR-FCM-ZZ9H)
 
-```{r load_data}
+```{r load_data, results='asis'}
 data_dir <- dir_create("data/flow")
 dataset_id <- "FR-FCM-ZZ9H"
 dataset_path <- fs::path(data_dir, dataset_id)
@@ -60,7 +60,7 @@ dataset <- flowRep.get(dataset_id)
 if (!dir_exists(dataset_path)) 
   dataset <- download(dataset, dirpath=dataset_path, only.files="Donor.*fcs", show.progress=F)
 fr <- read.FCS(fs::path(getwd(), dataset_path, 'Donor1.fcs'))
-fr %>% exprs %>% as_tibble
+fr %>% exprs %>% data.frame %>% head(10) %>% knitr::kable(format.args = list(digits=3))
 ```
 
 In this dataset, one way to identify lymphocytes is by looking at modes in the relationship between side and forward scatter:

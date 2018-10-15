@@ -30,13 +30,14 @@ RUN wget --no-verbose https://download3.rstudio.org/ubuntu-14.04/x86_64/VERSION 
 
 # Install bioconductor tools
 RUN R -e 'install.packages("BiocManager")'
+RUN R -e 'BiocManager::install("FlowRepositoryR", update=F)'
+# RUN R -e 'BiocManager::install("flowDensity", update=F)'
 
 # Install packages for shinyCyto
 RUN R -e 'devtools::install_github("hammerlab/cytoEx", ref="trunk")'
 RUN R -e 'devtools::install_github("RGLab/flowWorkspaceData", ref="trunk")'
-# RUN R -e 'devtools::install_github("hammerlab/shinyCyto", ref="trunk")'
-RUN R -e "install.packages(c('shinyjs', 'shinydashboard', 'DT', 'shinyFiles', 'networkD3', 'shinyBS', 'hash'))"
 RUN R -e "devtools::install_github('AnalytixWare/ShinySky')"
+RUN R -e "install.packages(c('shinyjs', 'shinydashboard', 'DT', 'shinyFiles', 'networkD3', 'shinyBS', 'hash', 'snakecase'))"
 
 EXPOSE 3838
 

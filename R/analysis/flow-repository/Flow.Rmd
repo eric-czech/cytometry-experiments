@@ -18,9 +18,7 @@ library(ggcyto)
 
 # Tidyverse
 library(fs)
-library(readr)
-library(dplyr)
-library(purrr)
+library(tidyverse)
 ```
 
 ```{r theme, include=F}

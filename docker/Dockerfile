@@ -37,7 +37,7 @@ RUN R -e 'BiocManager::install("FlowRepositoryR", update=F)'
 RUN R -e 'devtools::install_github("hammerlab/cytoEx", ref="trunk")'
 RUN R -e 'devtools::install_github("RGLab/flowWorkspaceData", ref="trunk")'
 RUN R -e "devtools::install_github('AnalytixWare/ShinySky')"
-RUN R -e "install.packages(c('shinyjs', 'shinydashboard', 'DT', 'shinyFiles', 'networkD3', 'shinyBS', 'hash', 'snakecase'))"
+RUN R -e "install.packages(c('shinyjs', 'shinydashboard', 'DT', 'shinyFiles', 'networkD3', 'shinyBS', 'hash', 'snakecase', 'janitor', 'Rtsne', 'gplots'))"
 
 EXPOSE 3838
 

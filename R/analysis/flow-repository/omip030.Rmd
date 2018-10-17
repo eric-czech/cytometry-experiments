@@ -133,13 +133,13 @@ df_cell_types %>% filter(!is.na(pheno_type)) %>%
   tabyl(pheno_type, mem_type) %>% 
   adorn_totals('row') %>% adorn_totals('col') %>%
   adorn_percentages(denominator='all') %>% 
-  adorn_pct_formatting(digits=1) %>%
+  adorn_pct_formatting(digits=2) %>%
   knitr::kable()
 ```
 
 Given the above information, we're ready to extract the raw marker intensity data and attach enough cell metadata to it to do something useful:
 
-```{r extract}
+```{r extract, results='asis'}
 # Create data frame with measurments and phenotype information
 fr <- getData(gh)
 name_map <- parameters(fr)@data %>% filter(str_detect(name, 'Comp'))
@@ -149,6 +149,8 @@ df <- fr %>% exprs %>% as_tibble %>%
   rename(!!name_map) %>%
   cbind(df_cell_types) %>%
   filter(!is.na(pheno_type))
+
+df %>% head(10) %>% knitr::kable()
 ```
 
 
@@ -184,7 +186,7 @@ dfg %>% melt(id.vars='pheno_type') %>%
 
 TSNE decomposition shows how much more readily some phenotypes separate from others:
 
-```{r tsne, fig.width=12, fig.height=8}
+```{r tsne, fig.width=12, fig.height=8, cache=T}
 set.seed(1)
 df_samp <- df %>% sample_n(15000)
 tsne <- df_samp %>% select_if(is.numeric) %>% as.matrix %>% Rtsne

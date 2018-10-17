@@ -147,7 +147,7 @@ cell_pop %>%
 
 ![](omip030_files/figure-markdown_github/cell_type_distribution-1.png)
 
-Now assign a primary phenotype and a memory phenotype to each cell and show how frequent either occur together:
+Now assign a primary phenotype and a memory phenotype to each cell and show how frequently either occur together:
 
 ``` r
 extract_node_assignment <- function(nodes) {
@@ -234,20 +234,23 @@ dfg <- df %>% group_by(pheno_type) %>% do({
   stats <- lapply(colnames(dp), function(col) {
     x <- pull(dt, col)
     y <- pull(dp, col)
-    sign(median(x) - median(y)) * ks.test(x, y)$statistic[[1]]
+    ksr <- ks.test(x, y)
+    sign(median(x) - median(y)) * ksr$statistic[[1]]
   })
   names(stats) <- colnames(dp)
   data.frame(stats)
 }) %>% ungroup
 
-hc <- dfg %>% select_if(is.numeric) %>% as.matrix %>% dist %>% hclust
+hc <- dfg %>% select_if(is.numeric) %>% 
+  as.matrix %>% dist %>% hclust
 dfg %>% melt(id.vars='pheno_type') %>% 
   mutate(pheno_type=factor(pheno_type, levels=dfg$pheno_type[hc$order])) %>% 
   ggplot(aes(x=pheno_type, y=variable, fill=value)) +
-  geom_tile() + 
+  geom_tile(width=0.9, height=0.9) + 
   scale_fill_gradient2(
     low='darkred', mid='white', high='darkblue', 
     guide=guide_colorbar(title='KS Statistic')) +
+  flow_theme + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   xlab('Primary Phenotype') + ylab('Marker') + 
   ggtitle('Expression Heatmap')

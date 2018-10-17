@@ -11,8 +11,8 @@ library(FlowRepositoryR)
 library(flowCore)
 library(openCyto)
 library(ggcyto)
-library(gplots)
 library(Rtsne)
+library(reshape2)
 
 map <- purrr::map
 add <- flowCore::add
@@ -95,34 +95,45 @@ Identify terminal nodes in the workflow which were, by convention, named with ei
 
 ``` r
 all_nodes <- getNodes(gs, path=1)
-cell_nodes <- getNodes(gs, path=1) %>% str_match(., 'CD[4|8]\\+ .*') %>% discard(is.na)
-cell_type_to_class <- function(x) str_detect(x, 'CD4+') %>% ifelse('CD4+', 'CD8+') 
-cell_class <- cell_type_to_class(cell_nodes) %>% set_names(cell_nodes)
-cell_nodes_th2 <- c('CD4+ Th2g1', 'CD4+ Th2g2')
-cell_nodes
+cell_pops <- all_nodes %>% keep(str_detect(., '^CD[4|8]\\+ .*'))
+
+not.is.na <- function(x) !is.na(x)
+cell_pop_to_class <- function(x) case_when(
+  str_detect(x, '^CD4\\+') ~ 'CD4+',
+  str_detect(x, '^CD8\\+') ~ 'CD8+',
+  TRUE ~ NA_character_
+)
+cell_pop_to_mem_state <- function(x) case_when(
+  str_detect(x, '^CD[4|8]\\+ CM.*') ~ 'CM',
+  str_detect(x, '^CD[4|8]\\+ EM.*') ~ 'EM',
+  TRUE ~ NA_character_
+)
+  
+cell_mem_types <- cell_pops[cell_pops %>% cell_pop_to_mem_state %>% not.is.na]
+cell_pheno_types <- cell_pops %>% discard(~. %in% cell_mem_types)
 ```
 
 Show the gating for terminal nodes, which correspond to specific cell types:
 
 ``` r
-autoplot(gs[[1]], cell_nodes, bins=100, strip.text='gate', axis_inverse_trans=FALSE) + 
+autoplot(gs[[1]], cell_pops, bins=100, strip.text='gate', axis_inverse_trans=FALSE) + 
   ggcyto_par_set(facet=facet_wrap(~name, scales='free'), limits = list(x=c(0, 225), y=c(0, 225)))
 ```
 
 ![](omip030_files/figure-markdown_github/leaf_gates-1.png)
 
-Plot the distribution of different cell types noting that many cells are assigned to more than one cell type, and here any duplicate assignments are resolved by counting *all* cells assigned to any one type:
+Plot the distribution of different cell types noting that the memory phenotype (CM vs EM) exhibited by CD4+ and CD8+ cells is considered independent of the other T-helper, Regulatory, Effector and Naive phenotypes. For example, this means that a Th17 cell can also exhibit CM or EM cell markers (or neither). Before separating these designations, this distribution will show how frequent each phenotype is regardless of co-occurrence:
 
 ``` r
 cell_count <- getTotal(gh, 'T Cells')
 
 cell_pop <- getPopStats(gs) %>% 
-  filter(Population %in% cell_nodes) %>% 
+  filter(Population %in% cell_pops) %>% 
   select(Population, Count) %>% 
   arrange(Count)
 
 cell_pop %>%
-  mutate(Percent=Count/cell_count, Class=cell_type_to_class(Population)) %>% 
+  mutate(Percent=Count/cell_count, Class=cell_pop_to_class(Population)) %>% 
   arrange(desc(Percent)) %>% 
   mutate(Population=fct_reorder(Population, Percent)) %>%
   ggplot(aes(x=Population, y=Percent, fill=Class)) +
@@ -136,92 +147,56 @@ cell_pop %>%
 
 ![](omip030_files/figure-markdown_github/cell_type_distribution-1.png)
 
-To move forward though, determining a single cell type for each cell is done by using the label with the lowest frequency to maximize the size of populations relating to more rare cells. Before doing that, here is the frequency of all cell type assignments where multiple assignments are comma separated:
+Now assign a primary phenotype and a memory phenotype to each cell and show how frequent either occur together:
 
 ``` r
-cell_nodes %>% map(~getIndices(gh, .)) %>% bind_cols %>% 
-  apply(., 1, function(x) paste(cell_nodes[x], collapse=', ')) %>% 
-  tabyl(var1='assignment') %>%
-  arrange(n) %>% adorn_pct_formatting() %>%
+extract_node_assignment <- function(nodes) {
+  nodes %>% map(~getIndices(gh, .)) %>% bind_cols %>% 
+    set_names(nodes) %>% apply(., 1, function(x){
+      if (sum(x) == 1) nodes[x] 
+      else NA_character_
+    })
+}
+
+df_cell_types <- list(pheno_type=cell_pheno_types, mem_type=cell_mem_types) %>% 
+  map(extract_node_assignment) %>% as_tibble %>%
+  mutate(class_type=cell_pop_to_class(pheno_type)) %>%
+  mutate(pheno_type=case_when(
+    pheno_type %in% c('CD4+ Th2g1', 'CD4+ Th2g2') ~ 'CD4+ Th2', 
+    TRUE ~ pheno_type
+  ))
+
+df_cell_types %>% filter(!is.na(pheno_type)) %>% 
+  mutate(mem_type=case_when(is.na(mem_type) ~ 'None', TRUE ~ mem_type)) %>% 
+  tabyl(pheno_type, mem_type) %>% 
+  adorn_totals('row') %>% adorn_totals('col') %>%
+  adorn_percentages(denominator='all') %>% 
+  adorn_pct_formatting(digits=1) %>%
   knitr::kable()
 ```
 
-| .                                            |       n| percent |
-|:---------------------------------------------|-------:|:--------|
-| CD4+ CM, CD4+ FH Th17-like, CD4+ Naive Treg  |       1| 0.0%    |
-| CD4+ CM, CD4+ Memory Treg                    |       1| 0.0%    |
-| CD4+ CM, CD4+ Th17, CD4+ Naive Treg          |       1| 0.0%    |
-| CD4+ CM, CD4+ Th2g2, CD4+ Naive Treg         |       1| 0.0%    |
-| CD4+ EM, CD4+ Naive Treg                     |       1| 0.0%    |
-| CD4+ EM, CD4+ Th22, CD4+ Naive Treg          |       1| 0.0%    |
-| CD4+ EM, CD4+ Th2g2, CD4+ Memory Treg        |       1| 0.0%    |
-| CD4+ FH Th17-like                            |       1| 0.0%    |
-| CD4+ Th17                                    |       1| 0.0%    |
-| CD4+ Th2g1                                   |       1| 0.0%    |
-| CD4+ CM, CD4+ FH Th17-like, CD4+ Memory Treg |       2| 0.0%    |
-| CD4+ Th22                                    |       3| 0.0%    |
-| CD4+ Th2g2                                   |       3| 0.0%    |
-| CD4+ EM, CD4+ Th2g1, CD4+ Memory Treg        |       4| 0.0%    |
-| CD4+ FH Th2-like                             |       4| 0.0%    |
-| CD4+ Th9                                     |       4| 0.0%    |
-| CD4+ CM, CD4+ Th9, CD4+ Memory Treg          |       5| 0.0%    |
-| CD4+ EM, CD4+ Th17, CD4+ Memory Treg         |       5| 0.0%    |
-| CD4+ CM, CD4+ ThG , CD4+ Memory Treg         |       6| 0.0%    |
-| CD4+ Effector, CD4+ Naive Treg               |       6| 0.0%    |
-| CD4+ Naive, CD4+ Naive Treg                  |       7| 0.0%    |
-| CD4+ CM, CD4+ Th22, CD4+ Memory Treg         |      12| 0.0%    |
-| CD4+ CM, CD4+ Th2g1, CD4+ Memory Treg        |      12| 0.0%    |
-| CD4+ EM, CD4+ Th9, CD4+ Memory Treg          |      14| 0.0%    |
-| CD4+ CM, CD4+ Th17, CD4+ Memory Treg         |      15| 0.0%    |
-| CD8+ mNKT-MAIT, CD8+ Effector                |      18| 0.0%    |
-| CD4+ EM, CD4+ Th22, CD4+ Memory Treg         |      25| 0.0%    |
-| CD8+ mNKT-MAIT, CD8+ CM                      |     653| 0.0%    |
-| CD8+ mNKT-MAIT, CD8+ EM                      |     826| 0.0%    |
-| CD4+ EM, CD4+ FH Th1-like                    |    1335| 0.1%    |
-| CD4+ EM, CD4+ FH Th17-like                   |    1693| 0.1%    |
-| CD4+ EM, CD4+ FH Th2-like                    |    2453| 0.1%    |
-| CD4+ EM, CD4+ ThG                            |    2628| 0.2%    |
-| CD4+ EM, CD4+ Th2g1                          |    5223| 0.3%    |
-| CD4+ EM, CD4+ Th2g2                          |    5256| 0.3%    |
-| CD4+ EM, CD4+ Th17                           |    6185| 0.4%    |
-| CD4+ CM, CD4+ ThG                            |    6873| 0.4%    |
-| CD4+ CM, CD4+ FH Th1-like                    |    7019| 0.4%    |
-| CD4+ CM, CD4+ Th22                           |    7381| 0.4%    |
-| CD4+ EM, CD4+ Th22                           |    7564| 0.5%    |
-| CD8+ mNKT-MAIT                               |   11612| 0.7%    |
-| CD4+ CM, CD4+ FH Th2-like                    |   11868| 0.7%    |
-| CD4+ Effector                                |   12677| 0.8%    |
-| CD4+ CM, CD4+ Th17                           |   15732| 0.9%    |
-| CD4+ CM, CD4+ FH Th17-like                   |   15891| 1.0%    |
-| CD4+ Naive Treg                              |   18770| 1.1%    |
-| CD4+ EM                                      |   18937| 1.1%    |
-| CD8+ CM                                      |   19226| 1.2%    |
-| CD4+ Memory Treg                             |   19398| 1.2%    |
-| CD4+ EM, CD4+ Th9                            |   21043| 1.3%    |
-| CD4+ CM, CD4+ Th2g1                          |   22107| 1.3%    |
-| CD4+ CM, CD4+ Th9                            |   23019| 1.4%    |
-| CD4+ CM, CD4+ Th2g2                          |   23151| 1.4%    |
-| CD4+ CM                                      |   23465| 1.4%    |
-| CD8+ Effector                                |   39677| 2.4%    |
-| CD8+ EM                                      |   43847| 2.6%    |
-| CD8+ Naive                                   |  119979| 7.2%    |
-| CD4+ Naive                                   |  191831| 11.5%   |
-|                                              |  957133| 57.5%   |
+| pheno\_type       | CD4+ CM | CD4+ EM | CD8+ CM | CD8+ EM | None  | Total  |
+|:------------------|:--------|:--------|:--------|:--------|:------|:-------|
+| CD4+ Effector     | 0.0%    | 0.0%    | 0.0%    | 0.0%    | 2.1%  | 2.1%   |
+| CD4+ FH Th1-like  | 1.2%    | 0.2%    | 0.0%    | 0.0%    | 0.0%  | 1.4%   |
+| CD4+ FH Th17-like | 2.6%    | 0.3%    | 0.0%    | 0.0%    | 0.0%  | 2.9%   |
+| CD4+ FH Th2-like  | 2.0%    | 0.4%    | 0.0%    | 0.0%    | 0.0%  | 2.4%   |
+| CD4+ Memory Treg  | 0.0%    | 0.0%    | 0.0%    | 0.0%    | 3.2%  | 3.2%   |
+| CD4+ Naive        | 0.0%    | 0.0%    | 0.0%    | 0.0%    | 31.9% | 31.9%  |
+| CD4+ Naive Treg   | 0.0%    | 0.0%    | 0.0%    | 0.0%    | 3.1%  | 3.1%   |
+| CD4+ Th17         | 2.6%    | 1.0%    | 0.0%    | 0.0%    | 0.0%  | 3.6%   |
+| CD4+ Th2          | 7.5%    | 1.7%    | 0.0%    | 0.0%    | 0.0%  | 9.3%   |
+| CD4+ Th22         | 1.2%    | 1.3%    | 0.0%    | 0.0%    | 0.0%  | 2.5%   |
+| CD4+ Th9          | 3.8%    | 3.5%    | 0.0%    | 0.0%    | 0.0%  | 7.3%   |
+| CD4+ ThG          | 1.1%    | 0.4%    | 0.0%    | 0.0%    | 0.0%  | 1.6%   |
+| CD8+ Effector     | 0.0%    | 0.0%    | 0.0%    | 0.0%    | 6.6%  | 6.6%   |
+| CD8+ mNKT-MAIT    | 0.0%    | 0.0%    | 0.1%    | 0.1%    | 1.9%  | 2.2%   |
+| CD8+ Naive        | 0.0%    | 0.0%    | 0.0%    | 0.0%    | 19.9% | 19.9%  |
+| Total             | 22.1%   | 8.9%    | 0.1%    | 0.1%    | 68.8% | 100.0% |
 
-Choose one cell type for each cell:
+Given the above information, we're ready to extract the raw marker intensity data and attach enough cell metadata to it to do something useful:
 
 ``` r
-# For now, favor less frequent cell types when assigning single type
-get_cell_type <- function(x){
-  ctyps <- cell_nodes[x]
-  if (is_empty(ctyps)) NA
-  # Select rarest cell type if there are multiple
-  else cell_pop$Population[which.max(cell_pop$Population %in% ctyps)]
-}
-cell_types <- cell_nodes %>% map(~getIndices(gh, .)) %>% bind_cols %>% 
-  apply(., 1, get_cell_type) 
-cell_types <- case_when(cell_types %in% cell_nodes_th2 ~ 'CD4+ Th2', TRUE ~ cell_types)
-
 # Create data frame with measurments and cell type
 fr <- getData(gh)
 name_map <- parameters(fr)@data %>% filter(str_detect(name, 'Comp'))
@@ -229,57 +204,80 @@ name_map <- set_names(name_map$name, name_map$desc)
 df <- fr %>% exprs %>% as_tibble %>% 
   select(starts_with('Comp')) %>% 
   rename(!!name_map) %>%
-  mutate(type=cell_types) %>%
-  filter(!is.na(type)) %>%
-  mutate(class=cell_type_to_class(type))
+  cbind(df_cell_types) %>%
+  filter(!is.na(pheno_type))
+
+df %>% head(10) %>% knitr::kable()
 ```
 
-Calculate the Kolmogrov Smirnov statistic for each cell type and marker, where the reference sample for any one combination is all *other* T Cells (for the same marker):
+Now that the data is in a convenient form, one way to analyze this is to look at how well any one marker works to separate a primary phenotype from all others. Below, a Kolmogrov Smirnov statistic signed by median difference is used where for any one marker, all cells of a specific primary phenotype are compared to all cells of a different phenotype to give an overall sense of magnitude and direction of the separation:
 
 ``` r
-dfg <- df %>% group_by(type) %>% do({
+dfg <- df %>% group_by(pheno_type) %>% do({
   d <- .
-  #dp <- df %>% filter(type != d$type[1] & class == d$class[1]) %>% select_if(is.numeric)
-  dp <- df %>% filter(type != d$type[1]) %>% select_if(is.numeric)
+  dp <- df %>% filter(pheno_type != d$pheno_type[1]) %>% select_if(is.numeric)
   dt <- d %>% select_if(is.numeric)
   assertthat::are_equal(colnames(dp), colnames(dt))
   stats <- lapply(colnames(dp), function(col) {
     x <- pull(dt, col)
     y <- pull(dp, col)
-    stat <- ks.test(x, y)$statistic[[1]]
-    sign(median(x) - median(y)) * stat
+    sign(median(x) - median(y)) * ks.test(x, y)$statistic[[1]]
   })
   names(stats) <- colnames(dp)
   data.frame(stats)
 }) %>% ungroup
 
-dfm <- dfg %>% select(-type) %>% as.matrix
-row.names(dfm) <- dfg$type
-heatmap.2(
-  t(dfm), Rowv=TRUE, Colv=TRUE, 
-  col = colorRampPalette(RColorBrewer::brewer.pal(11, 'RdBu'))(16), cexCol=.8, cexRow=.8, 
-  margins = c(8, 8), 
-  dendrogram = 'col', trace='none', scale='none',
-  colsep=1:nrow(dfm), rowsep=1:ncol(dfm),
-  density.info='none', sepwidth=c(.05,.05), key.title='KS', key.xlab='', 
-  keysize=.5, key.par =list(cex=.3)
-)
+hc <- dfg %>% select_if(is.numeric) %>% as.matrix %>% dist %>% hclust
+dfg %>% melt(id.vars='pheno_type') %>% 
+  mutate(pheno_type=factor(pheno_type, levels=dfg$pheno_type[hc$order])) %>% 
+  ggplot(aes(x=pheno_type, y=variable, fill=value)) +
+  geom_tile() + 
+  scale_fill_gradient2(
+    low='darkred', mid='white', high='darkblue', 
+    guide=guide_colorbar(title='KS Statistic')) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab('Primary Phenotype') + ylab('Marker') + 
+  ggtitle('Expression Heatmap')
 ```
 
 ![](omip030_files/figure-markdown_github/ks-1.png)
 
-Plot TSNE decomposition:
+TSNE decomposition shows how much more readily some phenotypes separate from others:
 
 ``` r
 set.seed(1)
-df_samp <- df %>% sample_n(10000)
-tsne <- df_samp %>% select(-type, -class) %>% as.matrix %>% Rtsne
-df_tsne <- tsne$Y %>% as_tibble %>%
-  mutate(type=df_samp$type, class=df_samp$class)
+df_samp <- df %>% sample_n(15000)
+tsne <- df_samp %>% select_if(is.numeric) %>% as.matrix %>% Rtsne
 
-df_tsne %>% mutate(type=factor(type, levels=sample(unique(type)))) %>%
-  ggplot(aes(x=V1, y=V2, color=type, shape=class)) + geom_point() +
-  flow_theme
+df_tsne <- tsne$Y %>% as_tibble %>% 
+  cbind(df_samp %>% select(pheno_type, mem_type, class_type)) %>%
+  mutate(mem_type=case_when(is.na(mem_type) ~ 'None', TRUE ~ mem_type))
+
+get_density <- function(x, y){
+  d <- densCols(x, y, colramp = colorRampPalette(rev(rainbow(10, end = 4/6))))
+  col2rgb(d)[1,] + 1L
+}
+
+plot_tsne <- function(df){
+  df_ctr <- df %>% group_by(pheno_type) %>% 
+    summarize(cx=median(V1), cy=median(V2)) %>% ungroup
+  df_pt <- df %>% group_by(pheno_type) %>% 
+    mutate(dens=get_density(V1, V2), mem_type=mem_type[1]) %>% ungroup 
+  
+  ggplot(NULL) + 
+    geom_point(data=df_pt, aes(x=V1, y=V2, color=pheno_type, alpha=dens, shape=mem_type)) +
+    geom_label(data=df_ctr, aes(x=cx, y=cy, color=pheno_type, label=pheno_type), size=3, alpha=.7) +
+    flow_theme
+}
+
+df_tsne %>% plot_tsne +
+  # Add axis/legend/figure titles
+  ggtitle('T Cell TSNE Decomposition') +
+  guides(
+    colour = guide_legend(title='Primary Phenotype'), 
+    shape = guide_legend(title='Memory State'), 
+    alpha = 'none'
+  ) + xlab('') + ylab('')
 ```
 
 ![](omip030_files/figure-markdown_github/tsne-1.png)

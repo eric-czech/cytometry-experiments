@@ -25,4 +25,15 @@ docker run --rm -p 8787:8787 -p 3838:3838 \
 -v $BOOK_REPO_DIR:/home/$USER/book \
 -v $DATA_DIR:/lab/data \
 cytoui
+
+export DATA_DIR=/Volumes/disk1
+export ANALYSIS_REPO_DIR=$HOME/repos/hammer/cell-image-analysis
+export CYTOKIT_REPO_DIR=$HOME/repos/hammer/cytokit
+export PASSWORD=cytoui
+docker run --rm -p 8787:8787 -p 3838:3838 \
+-e USERID=$UID -e USER=$USER -e PASSWORD=$PASSWORD \
+-v $ANALYSIS_REPO_DIR:/home/$USER/cell-image-analysis \
+-v $CYTOKIT_REPO_DIR:/home/$USER/cytokit \
+-v $DATA_DIR:/lab/data \
+cytoui
 ```

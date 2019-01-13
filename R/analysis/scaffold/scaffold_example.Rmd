@@ -1,0 +1,87 @@
+---
+title: "analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(vite)
+library(grappolo)
+```
+
+```{r}
+col.names <- c("CD45.2", "Ly6G", "IgD", "CD11c", "F480", "CD3", "NKp46", "CD23", "CD34", "CD115", 
+    "CD19", "120g8", "CD8", "Ly6C", "CD4", "CD11b", "CD27", "CD16_32", "SiglecF", "Foxp3", "B220", 
+    "CD5", "FceR1a", "TCRgd", "CCR7", "Sca1", "CD49b", "cKit", "CD150", "CD25", "TCRb", "CD43", "CD64",
+    "CD138", "CD103", "IgM", "CD44", "MHCII")
+
+
+# These instructions will create lists of the tissue specific files
+fcs.path <- "data/spitzer_2015/gated"
+BM.files.list <- list.files(pattern = "BM.*.fcs$", path = fcs.path, full.names = TRUE)
+SPL.files.list <- list.files(pattern = "SPL.*.fcs$", path = fcs.path, full.names = TRUE)
+LN.files.list <- list.files(pattern = "LN.*.fcs$", path = fcs.path, full.names = TRUE)
+BL.files.list <- list.files(pattern = "BL.*.fcs$", path = fcs.path, full.names = TRUE)
+
+files.groups <- list(
+  BM.pooled = BM.files.list,
+  SPL.pooled = SPL.files.list,
+  LN.pooled = LN.files.list,
+  BLD.pooled = BL.files.list
+)
+
+# The cluster_fcs_files_groups function enables pooling and clustering of the data. Here we are using the downsample.to option to reduce the size of the dataset
+# Before pooling, a random number of cell events (50000 in this case) is going to be selected from each file (once again please refer to the documentation for details)
+
+cluster_fcs_files_groups(files.groups, num.cores = 1, col.names = col.names, 
+                         num.clusters = 200, asinh.cofactor = 5, downsample.to = 1000, output.dir = "output/clustered_by_tissue")
+```
+
+
+
+```{r}
+# Clustering individual files or across all files
+
+# files.list <- c(
+#   "BLD_cells_normalized_beadsremoved_129-01_leukocytes.fcs",
+#   "BLD_cells_normalized_beadsremoved_B6-01_leukocytes.fcs",
+#   "BLD_cells_normalized_beadsremoved_Balb-01_leukocytes.fcs"
+# )
+# files.list <- file.path('data', 'spitzer_2015', 'gated', files.list)
+# grappolo::cluster_fcs_files(files.list, num.cores = 1, col.names = col.names, num.clusters = 200,
+#     asinh.cofactor = 5, output.dir = "output/clustered_single_samples")
+
+# files.list <- list.files(pattern = "*.fcs$", path = "data/spitzer_2015/gated", full.names = TRUE)
+# files.groups <- list(all.pooled = files.list)
+# # Before pooling, we downsample each file to 10000 cell events to reduce the size of the dataset
+# grappolo::cluster_fcs_files_groups(files.groups, num.cores = 1, col.names = col.names, 
+#     num.clusters = 200, asinh.cofactor = 5, downsample.to = 1000, output.dir = "output/all_pooled")
+```
+
+```{r}
+#vite::vite_GUI()
+files.list <- list.files(pattern = "*.clustered.txt$", path = "output/clustered_by_tissue", full.names = TRUE)
+
+# Define which columns contain variables that are going to be used to calculate similarities between the nodes
+col.names <- c("CD45.2", "Ly6G", "IgD", "CD11c", "F480", "CD3", "NKp46", "CD23", "CD34", "CD115", 
+    "CD19", "120g8", "CD8", "Ly6C", "CD4", "CD11b", "CD27", "CD16_32", "SiglecF", "Foxp3", "B220", 
+    "CD5", "FceR1a", "TCRgd", "CCR7", "Sca1", "CD49b", "cKit", "CD150", "CD25", "TCRb", "CD43", "CD64",
+    "CD138", "CD103", "IgM", "CD44", "MHCII")
+
+landmarks.data <- vite::load_landmarks_from_dir("data/spitzer_2015/landmarks/", asinh.cofactor = 5, transform.data = T)
+
+vite::run_scaffold_analysis(
+  files.list, ref.file = "output/clustered_by_tissue/BM.pooled.clustered.txt", 
+  landmarks.data, col.names, 
+  downsample.to = 10000,
+  out.dir="output/scaffold_result_10k")
+
+```
+
+```{r}
+panorama::panorama()  
+#shiny::runApp(appDir=file.path(system.file(package = "panorama"), "shinyGUI"), port = 8072)
+```

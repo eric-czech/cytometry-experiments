@@ -1,6 +1,6 @@
 # Example fcs file url: https://premium.cytobank.org/cytobank/experiments/154556/fcs_files/2487981/events'
+source('cd8-exhaustion/common.R')
 
-data_dir <- '/Users/eczech/repos/cytometry-experiments/R/analysis/scaffold/data/bengsch_2018'
 cookie <- '_ga=GA1.2.1013683102.1539117436; __utmc=51498683; __utmz=51498683.1546976315.1.1.utmcsr=ncbi.nlm.nih.gov|utmccn=(referral)|utmcmd=referral|utmcct=/; __utma=51498683.1013683102.1539117436.1547195094.1547238377.4; __stripe_mid=1256981e-0fd9-4a99-8e16-b91ee76705ff; _gid=GA1.2.2104498739.1547317662; __stripe_sid=2069bd85-ff9b-433a-8bd1-c3ba72815086; user_credentials=3fcbd07a12725f7aed1bdcad5ba6122d9d6b8e806897c572f96f4b9fea98f33f3fc40639acd1ede01f60a8d67dd23a104dc8d53f5df4ce97af5a2a9d3f71c3b3%3A%3A7991; _session_id=899c31d1e39ffa6414d8a9755b14569a'
 url_format <- 'https://premium.cytobank.org/cytobank/experiments/154556/fcs_files/%s/events'
 fcs_file_ids <- 2487980 + 0:46

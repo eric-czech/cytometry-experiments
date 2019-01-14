@@ -3,14 +3,21 @@ library(tidyverse)
 library(vite)
 library(grappolo)
 
-data_dir <- '/Users/eczech/repos/cytometry-experiments/R/analysis/scaffold/data/bengsch_2018/fcs'
-fcs_files <- list.files(data_dir, '.*\\.fcs')[c(1:3, 7:9, 25:27)]
-col_names <- c(
-  "2B4", "CCR7", "Cd112Di", "Cd114Di", "CD127", "CD16", "CD160", "CD19", "CD26", "CD27", "CD28", "CD3", 
-  "CD38", "CD39", "CD4", "CD45", "CD45RA", "CD45RO", "CD57", "CD7", "CD73", "CD8", "Cisplatin", "CTLA4", "CXCR5", 
-  "Eomes", "GranzymeB", "GranzymeK", "Helios", "Ki67", "LAG3", 
-  "PD-1", "Tbet", "TIGIT", "Tim3", "Time", "TOX"
+source('cd8-exhaustion/common.R')
+data_dir <- file.path(data_dir, 'fcs')
+#fcs_files <- list.files(data_dir, '.*\\.fcs')[c(1:3, 7:9, 25:27)]
+fcs_files <- c(
+  # Healthy
+  'CD8_HC_001.fcs', 'CD8_HC_002.fcs', 'CD8_HC_003.fcs', 'CD8_HC_004.fcs', 'CD8_HC_006.fcs',
+  
+  # Severe untreated HIV
+  'CD8_HIV_002.fcs', 'CD8_HIV_003.fcs', 'CD8_HIV_006.fcs', 'CD8_HIV_015.fcs', 'CD8_HIV_027.fcs',
+  
+  sprintf('CD8_LUCA_00%s_PBMC.fcs', 1:5),
+  sprintf('CD8_LUCA_00%s_TIL.fcs', 1:5),
+  sprintf('CD8_LUCA_00%s_Lung.fcs', 1:5)
 )
+col_names <- col_names_core
 
 #### Independent Clustering
 
@@ -75,31 +82,38 @@ vite::write_graph(G, "output/bengsch_2018/clustered_all_samples/unsupervised_gra
 ### Scaffold Analysis
 
 fcs_file_groups <- list(
-  healthy=fcs_files %>% purrr::keep(~str_detect(., 'HC')),
-  hiv=fcs_files %>% purrr::keep(~str_detect(., 'HIV')),
-  luca=fcs_files %>% purrr::keep(~str_detect(., 'LUCA'))
+  healthy_pbmc=fcs_files %>% purrr::keep(~str_detect(., 'HC')),
+  hiv_pbmc=fcs_files %>% purrr::keep(~str_detect(., 'HIV')),
+  luca_pbmc=fcs_files %>% purrr::keep(~str_detect(., 'LUCA_.*_PBMC')),
+  luca_lung=fcs_files %>% purrr::keep(~str_detect(., 'LUCA_.*_Lung')),
+  luca_til=fcs_files %>% purrr::keep(~str_detect(., 'LUCA_.*_TIL'))
 ) %>% purrr::map(~file.path(data_dir, .))
 
+# Spitzer data has 80 files and is clustered by 4 tissue types with 10k per file
+# giving about 20 * 10,000 = 200,000 events to be separated into 200 clusters
+# i.e. aim for num events = 1000 * num clusters
 grappolo::cluster_fcs_files_groups(
   fcs_file_groups, 
   num.cores = 1, 
   col.names = col_names, 
-  num.clusters = 100, 
+  num.clusters = 75, 
   asinh.cofactor = 5, 
-  downsample.to = 1000, 
+  downsample.to = 15000, 
   output.dir = "output/bengsch_2018/clustered_by_group"
 )
 
 cluster_files <- list.files(path = "output/bengsch_2018/clustered_by_group", pattern = ".*\\.clustered\\.txt$", full.names = TRUE)
-landmarks_data <- vite::load_landmarks_from_dir(file.path(data_dir, 'landmarks'), asinh.cofactor = NULL, transform.data = F)
+landmarks_data <- vite::load_landmarks_from_dir(file.path(data_dir, 'landmarks'), asinh.cofactor = 5, transform.data = T)
 vite::run_scaffold_analysis(
   cluster_files, 
   ref.file=cluster_files[[1]], 
   landmarks_data, col_names, 
   downsample.to = 10000,
-  out.dir="output/bengsch_2018/clustered_by_group/scaffold"
+  out.dir="output/bengsch_2018/clustered_by_group/scaffold",
+  inter.cluster.weight.factor=1
 )
 panorama::panorama()
+# /Users/eczech/repos/cytometry-experiments/R/analysis/scaffold/output/bengsch_2018/clustered_by_group/scaffold/healthy_pbmc.graphml
 
 # fr <- read.FCS('/Users/eczech/repos/cytometry-experiments/R/analysis/scaffold/data/spitzer_2015/landmarks/BM2_cct_normalized_01_BM2_cct_normalized_concat.fcs_B cells.fcs')
 

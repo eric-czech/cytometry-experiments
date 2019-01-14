@@ -3,8 +3,7 @@ library(stringr)
 library(purrr)
 library(dplyr)
 library(readr)
-data_dir <- '/Users/eczech/repos/cytometry-experiments/R/analysis/scaffold/data/bengsch_2018'
-
+source('cd8-exhaustion/common.R')
 
 files <- tibble(
     filename=list.files(data_dir, 'CD8_.*\\.fcs\\.txt$'), 
@@ -34,16 +33,9 @@ files <- tibble(
 # 44
 # cts[cts == max(cts)] %>% names %>% paste(collapse='", "') %>% cat
 
-# Set list of fields present in all panels to be used to standardize all FCS files
-common_fields <- c(
-  "2B4", "beads", "CCR7", "Cd112Di", "Cd114Di", "CD127", "CD16", "CD160", "CD19", "CD26", "CD27", "CD28", "CD3", 
-  "CD38", "CD39", "CD4", "CD45", "CD45RA", "CD45RO", "CD57", "CD7", "CD73", "CD8", "Cisplatin", "CTLA4", "CXCR5", 
-  "Eomes", "Event_length", "GranzymeB", "GranzymeK", "Helios", "Iridium191", "Iridium193", "Ki67", "LAG3", "LD", 
-  "PCA_1_ESG", "PCA_2_ESG", "PD-1", "Pheno_ESG_1", "Pheno_ESG_2", "Tbet", "TIGIT", "Tim3", "Time", "TOX"
-)
 
 # Define functions for reading Cytobank csv files as well as convertion to flowFrame
-to_df <- function(path) read_delim(path, delim='\t', skip=1) %>% select(one_of(common_fields))
+to_df <- function(path) read_delim(path, delim='\t', skip=1) %>% select(one_of(col_names_shared)) # select only shared fields in all files
 to_fr <- function(df) flowFrame(as.matrix(df))
 
 # Convert each csv to a flowFrame and group all flowFrames into a flowSet

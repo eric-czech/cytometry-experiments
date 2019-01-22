@@ -110,9 +110,10 @@ vite::run_scaffold_analysis(
   landmarks_data, col_names, 
   downsample.to = 10000,
   out.dir="output/bengsch_2018/clustered_by_group/scaffold",
-  inter.cluster.weight.factor=1
+  inter.cluster.weight.factor=.7
 )
 panorama::panorama()
+# CTLA4
 # /Users/eczech/repos/cytometry-experiments/R/analysis/scaffold/output/bengsch_2018/clustered_by_group/scaffold/healthy_pbmc.graphml
 
 # fr <- read.FCS('/Users/eczech/repos/cytometry-experiments/R/analysis/scaffold/data/spitzer_2015/landmarks/BM2_cct_normalized_01_BM2_cct_normalized_concat.fcs_B cells.fcs')

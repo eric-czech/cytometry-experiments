@@ -19,3 +19,20 @@ col_names_core <- c(
   "TIGIT", "CXCR5", "2B4", "LAG3", "CCR7", 
   "CD45RA" # CD45RA not in doc but included here for consistency
 )
+
+# This is parameterized to be equivalent to (default) transformation used in ParkerICI/vite
+arcsinh_trans <- arcsinhTransform(a=0, b=1/5, c=0)
+
+cytofAsinh <- function(transformationId = "defaultCytofAsinh", cofactor = 5, sd=.01){
+  t <- new("transform", .Data = function(value) {
+    value <- value-1
+    loID <- which(value < 0)
+    if(length(loID) > 0)
+      value[loID] <- rnorm(length(loID), mean = 0, sd = sd)
+    value <- value / cofactor
+    value <- asinh(value) # value <- log(value + sqrt(value^2 + 1))
+    return(value)
+  })
+  t@transformationId <- transformationId
+  t
+}
